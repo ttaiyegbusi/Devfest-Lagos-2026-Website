@@ -1,0 +1,136 @@
+@font-face {
+  font-family: "Heading Now";
+  src: url("/fonts/HeadingNow-58Heavy.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+.hero {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background: #fdf6e4;
+  overflow: hidden;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  color: #1a1a1a;
+}
+
+.hero__nav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 40px;
+  background: #fffcf0;
+  border-bottom: 1px solid #f3e3af;
+}
+
+.hero__brand {
+  display: flex;
+  align-items: center;
+}
+
+.hero__brand-logo {
+  display: block;
+  width: auto;
+  height: 24px;
+}
+
+.hero__links {
+  display: flex;
+  gap: 28px;
+  list-style: none;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 auto;
+  padding: 0 32px 0 0;
+}
+
+.hero__nav-cta {
+  background: #1a1a1a;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 15px;
+  padding: 12px 32px;
+}
+
+.hero__wordmark {
+  position: absolute;
+  /* anchored to the vertical centre (same as the 3D drum) so the cards
+     always cross the letters, on short and tall viewports alike */
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Heading Now", "Anton", "Arial Black", sans-serif;
+  font-weight: 800;
+  font-size: 16vw;
+  line-height: 1;
+  color: #f9ab00;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  margin: 0;
+  z-index: 2;
+  user-select: none;
+}
+
+/* the wordmark sits BETWEEN the two canvas layers, so the carousel's far
+   half passes behind the letters and its near half in front of them */
+.hero__canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hero__canvas--back {
+  z-index: 1;
+}
+
+.hero__canvas--front {
+  z-index: 3;
+}
+
+.hero__canvas canvas {
+  display: block;
+}
+
+.hero__tagline {
+  position: absolute;
+  left: 7vw;
+  bottom: 10vh;
+  z-index: 10;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: #1a1a1a;
+  max-width: 340px;
+  margin: 0;
+}
+
+.hero__ticket-cta {
+  position: absolute;
+  right: 7vw;
+  bottom: 10vh;
+  z-index: 10;
+  background: #1a1a1a;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 16px;
+  width: 152px;
+  height: 86px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.hero__ticket-arrow {
+  font-size: 18px;
+}
