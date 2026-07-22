@@ -7,17 +7,12 @@ import { CARDS } from "./cardData";
 import { scrollState } from "./scrollState";
 import { carouselState } from "./carouselState";
 
-const CARD_HEIGHT = 2.6;
-// Large radius relative to card width = gentle wrap, so 4-5 cards face the
-// camera at once as in the reference, instead of a tight over-curved drum.
-const RADIUS = 2.9;
-const SPIN_SPEED = 0.22; // rad/s — slow continuous carousel rotation
-// Push the whole drum back so the front cards (local z ≈ +RADIUS) land near
-// the world z=0 clip plane. Each big front card then straddles the plane —
-// its top (tilted away) renders on the back canvas behind the wordmark, its
-// bottom (tilted toward the viewer) on the front canvas — so cards visibly
-// thread through the letters.
-const DRUM_Z = -RADIUS;
+const CARD_HEIGHT = 2.35;
+// Big radius relative to card width = gentle wrap, so the cards read as
+// clean flat portraits (not a tightly over-curved, bulging drum) with 3–4
+// facing the camera at once, as in the reference.
+const RADIUS = 4.4;
+const SPIN_SPEED = 0.2; // rad/s — slow continuous carousel rotation
 
 // Rendered once per canvas layer. The front layer passes driver=true and
 // advances the shared carouselState; the back layer just mirrors it.
@@ -29,7 +24,18 @@ export function CardRibbon({ driver = false }: { driver?: boolean }) {
   const cardArc = (CARD_HEIGHT * CARD_ASPECT) / RADIUS;
   const step = (Math.PI * 2) / CARDS.length;
 
-  useFrame((_, delta) => {
+  // Keep the cards a moderate fraction of the viewport (not filling it).
+  const scale = Math.min(viewport.width / 12, 1.0);
+  // Push the drum back so the *scaled* front cards (world z ≈ scale·RADIUS
+  // from the group origin) land on the world z=0 clip plane. Each front card
+  // then straddles the plane — its top (tilted away) renders on the back
+  // canvas behind the wordmark, its bottom on the front canvas — so cards
+  // visibly thread through the letters.
+  const drumZ = -RADIUS * scale;
+
+  useFrame((_, rawDelta) => {
+    // clamp so a slow first frame or resume-after-pause can't jump the drum
+    const delta = Math.min(rawDelta, 0.05);
     if (driver) {
       const progress = scrollState.progress;
       const lerpSpeed = 1 - Math.pow(0.001, delta);
@@ -42,10 +48,10 @@ export function CardRibbon({ driver = false }: { driver?: boolean }) {
 
       // fixed base pose: tipped toward the viewer, rolled so the ribbon
       // rises to the right (as in the reference); scroll tips it further
-      const targetX = 0.16 + progress * 0.15;
+      const targetX = 0.14 + progress * 0.15;
       carouselState.tiltX += (targetX - carouselState.tiltX) * lerpSpeed;
-      carouselState.tiltZ = 0.3;
-      carouselState.posY = -0.15 - progress * 1.2;
+      carouselState.tiltZ = 0.28;
+      carouselState.posY = 0.35 - progress * 1.2;
     }
 
     if (spinRef.current) {
@@ -55,16 +61,12 @@ export function CardRibbon({ driver = false }: { driver?: boolean }) {
       tiltRef.current.rotation.x = carouselState.tiltX;
       tiltRef.current.rotation.z = carouselState.tiltZ;
       tiltRef.current.position.y = carouselState.posY;
-      tiltRef.current.position.z = DRUM_Z;
+      tiltRef.current.position.z = drumZ;
     }
   });
 
-  // drum is pushed back to DRUM_Z (front cards near z=0), so it sits further
-  // from the camera than before — scale up to keep the cards large
-  const scale = Math.min(viewport.width / 8.5, 1.2);
-
   return (
-    <group ref={tiltRef} scale={scale} position={[0, -0.15, DRUM_Z]} rotation={[0.16, 0, 0.3]}>
+    <group ref={tiltRef} scale={scale} position={[0, 0.35, drumZ]} rotation={[0.14, 0, 0.28]}>
       <group ref={spinRef}>
         {CARDS.map((data, i) => (
           <CarouselCard
