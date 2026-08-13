@@ -1,5 +1,5 @@
 /* ============================================================================
-   Melius hero — warm near-white stage, dotted grid, full-width announcement
+   DevFest hero — warm near-white stage, dotted grid, full-width announcement
    bar, dark brand pill + auth actions, editorial serif headline, and the 3D
    image ribbon that threads through the centre. Opening choreography + content
    reveal are driven by CSS custom properties written each frame by the ribbon
@@ -89,15 +89,11 @@
   min-width: 246px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
 }
-.brand__mark {
-  width: 26px;
-  height: auto;
-  color: #fff;
-}
-.brand__name {
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+.brand__logo {
+  display: block;
+  height: 19px;
+  width: auto;
+  color: #fff; /* the wordmark inherits this */
 }
 .brand__menu {
   margin-left: auto;
@@ -324,11 +320,8 @@
     padding: 11px 13px;
     border-radius: 13px;
   }
-  .brand__mark {
-    width: 22px;
-  }
-  .brand__name {
-    font-size: 17px;
+  .brand__logo {
+    height: 16px;
   }
   .auth {
     gap: 7px;

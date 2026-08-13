@@ -14,8 +14,8 @@
 // the gaps widen automatically as the cards grow and turn.
 
 export const BASE_W = 1440;
-/** Card face size in base units (aspect ≈ 0.88, as measured). */
-export const CARD_W = 250;
+/** Card face size in base units (aspect ≈ 0.95, as measured). */
+export const CARD_W = 270;
 export const CARD_H = 284;
 
 /** Cards per side. Must match PER_SIDE in PerspectiveGallery. */
@@ -36,9 +36,13 @@ const GAP = 0.97;
 const SEAM_HALF = 8;
 // Measured rotation by card index: 0, 0, 20, 40, 57, 68, 75 degrees. The ramp
 // is expressed per-card so it survives a change in N_PER_SIDE.
-const ROT_MAX = 110; // deg, asymptote (well past any real card)
-const ROT_RATE = 1.35 * (6 / N_PER_SIDE); // ramp rate, held constant per card
-const ROT_START = 0.15; // lp before which cards stay front-facing
+// Rotation is what makes the ribbon read as a *stack* rather than a filmstrip:
+// the outer cards must turn hard enough to compress into narrow, steeply
+// leaning slats that tuck behind one another. Measured off the reference by
+// card index: 0, 0, ~10, 48, 64, 72 degrees — a late but very steep ramp.
+const ROT_MAX = 90; // deg, asymptote
+const ROT_RATE = 2.55 * (6 / N_PER_SIDE); // ramp rate, held constant per card
+const ROT_START = 0.2; // lp before which cards stay front-facing
 // Depth range kept mild: card size is set explicitly by `scaleAt`, so z is
 // only there for subtle parallax — a deep range would fight the measured
 // sizes via perspective foreshortening.

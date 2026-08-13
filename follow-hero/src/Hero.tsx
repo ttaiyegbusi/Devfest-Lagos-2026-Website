@@ -1,21 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PerspectiveGallery } from "./gallery/PerspectiveGallery";
+import { DevFestLogo } from "./DevFestLogo";
 import "./Hero.css";
-
-// The Melius bowtie mark.
-function MeliusMark({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 28 18"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M13 9 1.6 1.2A1 1 0 0 0 0 2v14a1 1 0 0 0 1.6.8L13 9Z" />
-      <path d="M15 9 26.4 1.2A1 1 0 0 1 28 2v14a1 1 0 0 1-1.6.8L15 9Z" />
-    </svg>
-  );
-}
 
 // Rotating prompt suggestions, matching the reference's cycling placeholder.
 const PROMPTS = [
@@ -57,16 +43,17 @@ export function Hero() {
       <div className="dotgrid" aria-hidden="true" />
 
       <div className="announce">
-        <span className="announce__text">Seedance 2.5 is live on Melius</span>
-        <a className="announce__link" href="#seedance">
-          Try it now&nbsp;→
+        <span className="announce__text">
+          DevFest Lagos 2026 &middot; Tickets are live
+        </span>
+        <a className="announce__link" href="#tickets">
+          Get yours&nbsp;→
         </a>
       </div>
 
       <header className="header">
         <div className="brand">
-          <MeliusMark className="brand__mark" />
-          <span className="brand__name">Melius</span>
+          <DevFestLogo className="brand__logo" />
           <span className="brand__menu" aria-hidden="true">
             <span />
             <span />
