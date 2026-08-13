@@ -104,10 +104,14 @@ export function PerspectiveGallery({
       const face = faceRefs.current[i];
       if (!face) return;
       const card = CARDS[src];
+      // Clear the shorthand *before* setting the longhand: `background = ""`
+      // drops every background longhand from the inline style, so doing it
+      // afterwards would wipe the image we just assigned.
       if (card.image) {
-        face.style.backgroundImage = `url(${card.image})`;
         face.style.background = "";
+        face.style.backgroundImage = `url("${card.image}")`;
       } else {
+        face.style.backgroundImage = "";
         face.style.background = card.background ?? "";
       }
     };

@@ -164,6 +164,9 @@
   position: absolute;
   inset: 0;
   border-radius: 10px;
+  /* Fallback tone so a card is never transparent in the window between its
+     black mask dissolving and its photograph decoding. */
+  background-color: #2a2724;
   background-size: cover;
   background-position: center;
   backface-visibility: hidden;
