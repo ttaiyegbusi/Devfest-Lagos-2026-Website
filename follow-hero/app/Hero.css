@@ -269,11 +269,16 @@
   color: #b6b2ae;
   font-size: 14px;
   line-height: 1.28;
-  animation: promptFade 0.5s ease;
+  /* `both` holds the final frame. Without it the text is only opaque because
+     nothing overrides it, so any pause or throttle of the animation leaves the
+     placeholder invisible mid-fade. */
+  animation: promptFade 0.45s ease both;
 }
 @keyframes promptFade {
+  /* Floored well above zero: the placeholder must stay legible even if the
+     animation is paused or throttled at its first frame. */
   from {
-    opacity: 0;
+    opacity: 0.25;
     transform: translateY(4px);
   }
   to {

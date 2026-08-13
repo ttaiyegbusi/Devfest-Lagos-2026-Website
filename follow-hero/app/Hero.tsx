@@ -5,12 +5,13 @@ import { PerspectiveGallery } from "./gallery/PerspectiveGallery";
 import { DevFestLogo } from "./DevFestLogo";
 import "./Hero.css";
 
-// Rotating prompt suggestions, matching the reference's cycling placeholder.
-const PROMPTS = [
-  "Design a product launch campaign for a new sneaker drop…",
-  "Storyboard a 30-second trailer for a sci-fi short film…",
-  "Write a release teaser for an indie synth-pop single…",
-  "Art-direct a spring editorial around bold florals…",
+// Rotating placeholders for the search pill, cycling through what you can
+// look up — tracks, sessions, speakers, workshops.
+const SEARCHES = [
+  "Find a session on generative AI…",
+  "Explore the Android engineering track…",
+  "Meet the speakers building for Africa…",
+  "Browse workshops for first-time builders…",
 ];
 
 export function Hero() {
@@ -30,11 +31,11 @@ export function Hero() {
     return () => observer.disconnect();
   }, []);
 
-  // Cycle the prompt text (low-frequency; not part of the rAF loop).
+  // Cycle the placeholder (low-frequency; not part of the rAF loop).
   useEffect(() => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     const id = window.setInterval(
-      () => setPromptIndex((i) => (i + 1) % PROMPTS.length),
+      () => setPromptIndex((i) => (i + 1) % SEARCHES.length),
       4200
     );
     return () => window.clearInterval(id);
@@ -66,8 +67,8 @@ export function Hero() {
           <a className="auth__signin" href="#signin">
             Sign In
           </a>
-          <a className="auth__start" href="#start">
-            Start for Free
+          <a className="auth__start" href="#tickets">
+            Get Tickets
           </a>
         </nav>
       </header>
@@ -82,16 +83,23 @@ export function Hero() {
 
       <div className="lower">
         <p className="paragraph">
-          Be the creative director. Let agents be your team. Brief our agent
-          Mel, watch the work assemble, and steer any prompt until the output
-          lands exactly as you imagined.
+          The largest annual tech conference in Africa, hosted by Google
+          Developer Group Lagos. Two days of talks, workshops and hallway
+          conversations with the people building what&rsquo;s next.
         </p>
 
         <div className="prompt">
           <span className="prompt__icon" aria-hidden="true">
-            <svg viewBox="0 0 40 16" fill="none">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle
+                cx="11"
+                cy="11"
+                r="6.5"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
               <path
-                d="M2 8c3-6 7-6 10 0s7 6 10 0 7-6 10 0"
+                d="m16 16 4.5 4.5"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
@@ -99,9 +107,9 @@ export function Hero() {
             </svg>
           </span>
           <span className="prompt__field" key={promptIndex}>
-            {PROMPTS[promptIndex]}
+            {SEARCHES[promptIndex]}
           </span>
-          <button className="prompt__send" aria-label="Send prompt">
+          <button className="prompt__send" aria-label="Search the programme">
             <svg viewBox="0 0 24 24" fill="none">
               <path
                 d="M5 12h13M13 6l6 6-6 6"
