@@ -1,0 +1,5 @@
+.DS_Store
+node_modules
+
+# Claude Code local (personal) settings
+.claude/settings.local.json

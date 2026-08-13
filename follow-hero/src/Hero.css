@@ -1,136 +1,368 @@
-@font-face {
-  font-family: "Heading Now";
-  src: url("/fonts/HeadingNow-58Heavy.woff2") format("woff2");
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
+/* ============================================================================
+   Melius hero — warm near-white stage, dotted grid, full-width announcement
+   bar, dark brand pill + auth actions, editorial serif headline, and the 3D
+   image ribbon that threads through the centre. Opening choreography + content
+   reveal are driven by CSS custom properties written each frame by the ribbon
+   engine (see gallery/PerspectiveGallery.tsx).
+   ========================================================================== */
 
 .hero {
+  --headline: 0;
+  --para: 0;
+  --prompt: 0;
+
+  /* geometry knobs */
+  --grid-top: 36px; /* announcement bar height */
+  --center: 50%; /* ribbon vertical centreline */
+  /* Base card face; the ribbon scales it per-card (see gallery/transforms.ts).
+     Aspect ≈0.88, measured off the reference. */
+  --card-w: 250px;
+  --card-h: 284px;
+
   position: relative;
   width: 100%;
   height: 100vh;
-  background: #fdf6e4;
   overflow: hidden;
+  background: #efeeeb;
+  color: #171717;
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
-  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
 }
 
-.hero__nav {
+/* ---- dotted background field ------------------------------------------- */
+.dotgrid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(20, 20, 20, 0.1) 1px,
+    transparent 1.15px
+  );
+  background-size: 24px 24px;
+}
+
+/* ---- announcement bar -------------------------------------------------- */
+.announce {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 10;
+  height: var(--grid-top);
+  z-index: 40;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 40px;
-  background: #fffcf0;
-  border-bottom: 1px solid #f3e3af;
+  justify-content: center;
+  gap: 10px;
+  background: #171515;
+  color: #e9e7e4;
+  font-size: 13px;
+  letter-spacing: 0.01em;
 }
-
-.hero__brand {
-  display: flex;
-  align-items: center;
-}
-
-.hero__brand-logo {
-  display: block;
-  width: auto;
-  height: 24px;
-}
-
-.hero__links {
-  display: flex;
-  gap: 28px;
-  list-style: none;
-  font-size: 15px;
-  font-weight: 500;
-  color: #1a1a1a;
-  margin: 0 auto;
-  padding: 0 32px 0 0;
-}
-
-.hero__nav-cta {
-  background: #1a1a1a;
-  color: #fff;
+.announce__link {
+  color: #ff5a2c;
   text-decoration: none;
   font-weight: 500;
-  font-size: 15px;
-  padding: 12px 32px;
 }
 
-.hero__wordmark {
+/* ---- header ------------------------------------------------------------ */
+.header {
   position: absolute;
-  /* anchored to the vertical centre (same as the 3D drum) so the cards
-     always cross the letters, on short and tall viewports alike */
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-family: "Heading Now", "Anton", "Arial Black", sans-serif;
-  font-weight: 800;
-  font-size: 16vw;
-  line-height: 1;
-  color: #f9ab00;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-  margin: 0;
-  z-index: 2;
-  user-select: none;
+  top: calc(var(--grid-top) + 16px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0 24px;
 }
 
-/* the wordmark sits BETWEEN the two canvas layers, so the carousel's far
-   half passes behind the letters and its near half in front of them */
-.hero__canvas {
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1b1917;
+  color: #fff;
+  padding: 15px 18px;
+  border-radius: 16px;
+  min-width: 246px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+.brand__mark {
+  width: 26px;
+  height: auto;
+  color: #fff;
+}
+.brand__name {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.brand__menu {
+  margin-left: auto;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 20px;
+}
+.brand__menu span {
+  height: 2px;
+  border-radius: 2px;
+  background: #d9d7d4;
+}
+
+.auth {
+  display: flex;
+  gap: 10px;
+}
+.auth__signin,
+.auth__start {
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 11px 20px;
+  border-radius: 11px;
+  white-space: nowrap;
+}
+.auth__signin {
+  background: #ffe25a;
+  color: #1a1a1a;
+}
+.auth__start {
+  background: #ff4d1c;
+  color: #fff;
+}
+
+/* ---- 3D image ribbon --------------------------------------------------- */
+.gallery {
   position: absolute;
   inset: 0;
+  z-index: 1;
+  /* Weak perspective — see PERSPECTIVE in gallery/transforms.ts. Keep the two
+     values in sync; the band's size compensation depends on it. */
+  perspective: 2000px;
+  perspective-origin: 50% var(--center);
   pointer-events: none;
 }
-
-.hero__canvas--back {
-  z-index: 1;
+.gallery__stage {
+  position: absolute;
+  left: 50%;
+  top: var(--center);
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+}
+.gallery__card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--card-w);
+  height: var(--card-h);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform;
+  visibility: hidden; /* JS reveals per-frame */
+}
+.gallery__face {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  backface-visibility: hidden;
+  /* Barely-there contact shadow. A heavier one reads as sheets of paper piled
+     on top of each other rather than panels receding behind one another. */
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+.gallery__mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: #0b0b0d;
+  opacity: 1; /* per-card dissolve driven from JS during the opening */
 }
 
-.hero__canvas--front {
+/* The bowtie seed's connective core during the opening, and the persistent
+   dark strip behind the centre filmstrip once settled. JS drives the size. */
+.gallery__band {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  overflow: visible;
+}
+.gallery__band path {
+  fill: #0b0b0d;
+}
+
+/* ---- headline ---------------------------------------------------------- */
+.headline {
+  position: absolute;
+  top: 19vh;
+  left: 50%;
+  transform: translateX(-50%)
+    translateY(calc((1 - var(--headline)) * 20px));
+  width: min(92vw, 1100px);
+  margin: 0;
   z-index: 3;
+  text-align: center;
+  font-family: "Instrument Serif", "Newsreader", Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(48px, 5.4vw, 92px);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: #171717;
+  opacity: var(--headline);
+  filter: blur(calc((1 - var(--headline)) * 5px));
 }
 
-.hero__canvas canvas {
+/* ---- lower content: paragraph + prompt --------------------------------- */
+.lower {
+  position: absolute;
+  left: 50%;
+  top: 70vh;
+  transform: translateX(-50%);
+  width: min(92vw, 780px);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.paragraph {
+  margin: 0;
+  /* Narrow enough to sit in the gap between the left and right card
+     clusters, as it does in the reference. */
+  max-width: min(88vw, 440px);
+  font-size: clamp(16px, 1.15vw, 20px);
+  line-height: 1.35;
+  color: #242424;
+  opacity: var(--para);
+  transform: translateY(calc((1 - var(--para)) * 12px));
+}
+
+.prompt {
+  margin-top: 30px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(86vw, 348px);
+  padding: 14px 14px 14px 18px;
+  border-radius: 26px;
+  background: #2b2a29;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  text-align: left;
+  opacity: var(--prompt);
+  transform: translateY(calc((1 - var(--prompt)) * 12px))
+    scale(calc(0.97 + var(--prompt) * 0.03));
+}
+.prompt__icon {
+  flex: none;
+  width: 26px;
+  color: #c9c6c2;
+}
+.prompt__icon svg {
+  width: 100%;
   display: block;
 }
-
-.hero__tagline {
-  position: absolute;
-  left: 7vw;
-  bottom: 10vh;
-  z-index: 10;
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1.45;
-  color: #1a1a1a;
-  max-width: 340px;
-  margin: 0;
+.prompt__field {
+  flex: 1;
+  min-width: 0;
+  color: #b6b2ae;
+  font-size: 14px;
+  line-height: 1.28;
+  animation: promptFade 0.5s ease;
+}
+@keyframes promptFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.prompt__send {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: #56534f;
+  color: #e9e6e2;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.prompt__send svg {
+  width: 18px;
+  height: 18px;
 }
 
-.hero__ticket-cta {
-  position: absolute;
-  right: 7vw;
-  bottom: 10vh;
-  z-index: 10;
-  background: #1a1a1a;
-  color: #fff;
-  text-decoration: none;
-  font-weight: 500;
-  font-size: 16px;
-  width: 152px;
-  height: 86px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+/* ---- responsive -------------------------------------------------------- */
+/* Card sizing is handled by the ribbon engine's viewport scale, so the
+   breakpoints only adjust the surrounding layout. */
+@media (max-width: 1023px) {
+  .headline {
+    top: 17vh;
+  }
+}
+@media (max-width: 640px) {
+  .hero {
+    --center: 47%;
+  }
+  .header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .brand {
+    min-width: 0;
+    gap: 9px;
+    padding: 11px 13px;
+    border-radius: 13px;
+  }
+  .brand__mark {
+    width: 22px;
+  }
+  .brand__name {
+    font-size: 17px;
+  }
+  .auth {
+    gap: 7px;
+  }
+  .auth__signin,
+  .auth__start {
+    padding: 9px 12px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+  .headline {
+    top: 15vh;
+    font-size: clamp(34px, 9vw, 56px);
+  }
+  .lower {
+    top: 71vh;
+  }
 }
 
-.hero__ticket-arrow {
-  font-size: 18px;
+/* ---- reduced motion ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .headline,
+  .paragraph,
+  .prompt {
+    filter: none;
+    transform: translateX(-50%);
+  }
+  .lower {
+    transform: translateX(-50%);
+  }
+  .prompt {
+    transform: none;
+  }
+  .prompt__field {
+    animation: none;
+  }
 }
