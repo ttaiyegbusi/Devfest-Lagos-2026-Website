@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { PerspectiveGallery } from "./gallery/PerspectiveGallery";
 import { DevFestLogo } from "./DevFestLogo";

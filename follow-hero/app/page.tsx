@@ -1,7 +1,5 @@
 import { Hero } from "./Hero";
 
-function App() {
+export default function Page() {
   return <Hero />;
 }
-
-export default App;
