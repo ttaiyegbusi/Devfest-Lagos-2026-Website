@@ -46,6 +46,8 @@ const DRAG_PX_PER_PHASE = 520;
 const SPIN_FRICTION = 0.055;
 /** Below this the spin is over and the ribbon is back to its own drift. */
 const SPIN_MIN = PHASE_SPEED * 0.05;
+/** Chain clicks spread across the opening unfold. */
+const OPEN_TICKS = 18;
 
 interface Card {
   /** Which half of the ribbon it is on. Flips when it crosses the centre. */
@@ -69,11 +71,18 @@ export function PerspectiveGallery({
   rootRef,
   active,
   soundRef,
+  replayRef,
 }: {
   rootRef: React.RefObject<HTMLElement | null>;
   active: boolean;
   /** Chain sound, owned by Hero so the toggle can reach it too. */
   soundRef: React.RefObject<ChainSound | null>;
+  /**
+   * Bumped to replay the opening. The rattle belongs to the unfold, which has
+   * already run by the time anyone can switch the sound on — browsers refuse
+   * audio before a gesture — so enabling it rewinds the hero to let you hear.
+   */
+  replayRef: React.RefObject<number>;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<HTMLDivElement>(null);
@@ -119,8 +128,11 @@ export function PerspectiveGallery({
     // Spin state. `spinV` is phase per second; positive drives cards rightward.
     let spinV = 0;
     let dragging = false;
-    // Accumulated travel since the last chain click.
-    let sinceTick = 0;
+    // Chain-rattle bookkeeping across the opening unfold.
+    let prevUnfold = 0;
+    let unfoldTicks = 0;
+    let openTick = 0;
+    let replaySeen = replayRef.current;
 
     const applyFace = (i: number, src: number) => {
       const face = faceRefs.current[i];
@@ -246,6 +258,18 @@ export function PerspectiveGallery({
         last = now;
         return;
       }
+      // Rewind and play the opening again.
+      if (replayRef.current !== replaySeen) {
+        replaySeen = replayRef.current;
+        start = now;
+        spinV = 0;
+        prevUnfold = 0;
+        unfoldTicks = 0;
+        for (let i = 0; i < cards.length; i++) {
+          cards[i].side = (i < PER_SIDE ? -1 : 1) as 1 | -1;
+          cards[i].lp = (i % PER_SIDE) / PER_SIDE;
+        }
+      }
       const t = freezeT ?? (now - start) / 1000;
       const dt = freezeT !== null ? 0 : Math.min((now - last) / 1000, 0.05);
       last = now;
@@ -325,18 +349,25 @@ export function PerspectiveGallery({
         }
       }
 
-      // One chain click per card-step of travel, so the rhythm follows the
-      // speed: a lazy tick at rest, a rattle when spun hard.
-      sinceTick += travelled;
-      const stepSize = 1 / PER_SIDE;
-      if (sinceTick >= stepSize) {
-        sinceTick %= stepSize;
-        const speed = travelled / dt / PHASE_SPEED;
-        soundRef.current?.tick(
-          Math.max(-0.7, Math.min(0.7, spinV * 40)),
-          Math.min(1, 0.55 + speed * 0.25)
-        );
+      // Chain rattle, only while the ribbon is unfolding — the stretch where
+      // the images go from small to big. Clicks are spaced by equal steps of
+      // *unfold progress* rather than by time, so they inherit the unfold's
+      // ease-out: dense as it bursts open, thinning as it settles. That is what
+      // a chain released under tension sounds like.
+      if (unfold > 0 && unfold < 1) {
+        unfoldTicks += unfold - prevUnfold;
+        const step = 1 / OPEN_TICKS;
+        while (unfoldTicks >= step) {
+          unfoldTicks -= step;
+          openTick++;
+          soundRef.current?.tick(
+            // Cards fly out both ways, so alternate ears.
+            openTick % 2 ? 0.55 : -0.55,
+            1 - unfold * 0.4
+          );
+        }
       }
+      prevUnfold = unfold;
 
       writeCards(anim, maskT);
     };

@@ -23,6 +23,7 @@ export function Hero() {
   // that makes noise unprompted is the kind of thing people leave.
   const [sound, setSound] = useState(false);
   const soundRef = useRef<ChainSound | null>(null);
+  const replayRef = useRef(0);
 
   useEffect(() => {
     soundRef.current = createChainSound();
@@ -32,8 +33,11 @@ export function Hero() {
     };
   }, []);
 
+  // Switching the sound on replays the opening, because the rattle belongs to
+  // the unfold and that has already finished by the time anyone can click.
   useEffect(() => {
     soundRef.current?.setEnabled(sound);
+    if (sound) replayRef.current += 1;
   }, [sound]);
 
   // Only run the ribbon loop while the hero is on screen.
@@ -94,6 +98,7 @@ export function Hero() {
         rootRef={sectionRef}
         active={active}
         soundRef={soundRef}
+        replayRef={replayRef}
       />
 
       <button
