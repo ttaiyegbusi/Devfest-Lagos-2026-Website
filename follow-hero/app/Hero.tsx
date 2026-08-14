@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PerspectiveGallery } from "./gallery/PerspectiveGallery";
+import { createChainSound, type ChainSound } from "./gallery/chainSound";
 import { DevFestLogo } from "./DevFestLogo";
 import "./Hero.css";
 
@@ -18,6 +19,22 @@ export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState(true);
   const [promptIndex, setPromptIndex] = useState(0);
+  // Off by default: browsers block audio until a gesture anyway, and a hero
+  // that makes noise unprompted is the kind of thing people leave.
+  const [sound, setSound] = useState(false);
+  const soundRef = useRef<ChainSound | null>(null);
+
+  useEffect(() => {
+    soundRef.current = createChainSound();
+    return () => {
+      soundRef.current?.dispose();
+      soundRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    soundRef.current?.setEnabled(sound);
+  }, [sound]);
 
   // Only run the ribbon loop while the hero is on screen.
   useEffect(() => {
@@ -73,7 +90,52 @@ export function Hero() {
         </nav>
       </header>
 
-      <PerspectiveGallery rootRef={sectionRef} active={active} />
+      <PerspectiveGallery
+        rootRef={sectionRef}
+        active={active}
+        soundRef={soundRef}
+      />
+
+      <button
+        type="button"
+        className="soundtoggle"
+        aria-pressed={sound}
+        aria-label={sound ? "Mute the ribbon" : "Unmute the ribbon"}
+        onClick={() => setSound((s) => !s)}
+      >
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M5 9.5h3l4-3.5v12l-4-3.5H5z"
+            fill="currentColor"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          {sound ? (
+            <>
+              <path
+                d="M16 9.2a4 4 0 0 1 0 5.6"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M18.6 6.8a7.5 7.5 0 0 1 0 10.4"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </>
+          ) : (
+            <path
+              d="m16.5 9.5 5 5m0-5-5 5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          )}
+        </svg>
+      </button>
 
       <h1 className="headline">
         One ecosystem.

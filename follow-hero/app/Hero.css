@@ -141,6 +141,50 @@
   perspective-origin: 50% var(--center);
   pointer-events: none;
 }
+/* Grab surface for spinning the ribbon. Above the cards, below the headline
+   and prompt so those stay clickable. `touch-action: none` stops a horizontal
+   drag from scrolling the page on touch devices. */
+.gallery__drag {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
+}
+.hero.is-dragging .gallery__drag {
+  cursor: grabbing;
+}
+/* Headline is decorative text — let drags pass through to the surface. */
+.headline {
+  pointer-events: none;
+}
+
+.soundtoggle {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  z-index: 40;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  color: #1b1917;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.soundtoggle:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+.soundtoggle svg {
+  width: 20px;
+  height: 20px;
+}
+
 .gallery__stage {
   position: absolute;
   left: 50%;

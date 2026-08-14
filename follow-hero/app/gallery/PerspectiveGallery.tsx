@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { CARDS } from "./cards";
+import type { ChainSound } from "./chainSound";
 import {
   BAND_H,
   BAND_HALF,
@@ -33,10 +34,24 @@ const TOTAL = PER_SIDE * 2;
 const TRAVERSE = 9.5;
 const PHASE_SPEED = 1 / TRAVERSE;
 
+// --- Drag-to-spin ----------------------------------------------------------
+// Dragging suspends the outward drift and turns the ribbon into a carousel:
+// every card walks the same way round, through the centre and out the far
+// side, wrapping edge to edge so it never runs out. Position is untouched by
+// the switch — only each card's *direction* changes — so it is seamless in and
+// out. Releasing lets the spin decay, and the outward drift fades back in.
+/** Pixels of drag equal to one full centre→edge traverse. */
+const DRAG_PX_PER_PHASE = 520;
+/** Per-second velocity retained after release. */
+const SPIN_FRICTION = 0.055;
+/** Below this the spin is over and the ribbon is back to its own drift. */
+const SPIN_MIN = PHASE_SPEED * 0.05;
+
 interface Card {
+  /** Which half of the ribbon it is on. Flips when it crosses the centre. */
   side: 1 | -1;
-  step: number; // fixed phase offset within its side
-  prevLp: number;
+  /** 0 at the centre seam, 1 fully offscreen past its edge. */
+  lp: number;
   src: number;
 }
 
@@ -53,11 +68,15 @@ const prefersReducedMotion = () =>
 export function PerspectiveGallery({
   rootRef,
   active,
+  soundRef,
 }: {
   rootRef: React.RefObject<HTMLElement | null>;
   active: boolean;
+  /** Chain sound, owned by Hero so the toggle can reach it too. */
+  soundRef: React.RefObject<ChainSound | null>;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<HTMLDivElement>(null);
   const bandRef = useRef<SVGSVGElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -72,11 +91,9 @@ export function PerspectiveGallery({
         const j = i % PER_SIDE;
         // Both streams share the same phases, so cards are born as mirrored
         // pairs: two appear at the centre together, grow together, then part.
-        const step = j / PER_SIDE;
         return {
           side: (i < PER_SIDE ? -1 : 1) as 1 | -1,
-          step,
-          prevLp: step,
+          lp: j / PER_SIDE,
           src: i % CARDS.length,
         };
       }),
@@ -99,7 +116,11 @@ export function PerspectiveGallery({
     let raf = 0;
     let start = 0;
     let last = 0;
-    let ph = 0; // global phase [0,1)
+    // Spin state. `spinV` is phase per second; positive drives cards rightward.
+    let spinV = 0;
+    let dragging = false;
+    // Accumulated travel since the last chain click.
+    let sinceTick = 0;
 
     const applyFace = (i: number, src: number) => {
       const face = faceRefs.current[i];
@@ -139,14 +160,7 @@ export function PerspectiveGallery({
         const el = cardRefs.current[i];
         if (!el) continue;
         const c = cards[i];
-        const lp = (c.step + ph) % 1;
-        if (lp < c.prevLp) {
-          c.src = nextSrc++ % CARDS.length;
-          applyFace(i, c.src);
-        }
-        c.prevLp = lp;
-
-        const t = cardTransform(lp, c.side, anim);
+        const t = cardTransform(c.lp, c.side, anim);
         // Perspective magnification this card's depth will apply.
         const gain = t.screenScale / t.scale;
         const x = t.x * vs;
@@ -158,7 +172,7 @@ export function PerspectiveGallery({
         )}deg) scale(${scale.toFixed(4)})`;
 
         // Per-card black dissolve, centre cards first.
-        const op = 1 - Math.min(1, Math.max(0, (maskT * 1.35 - lp) / 0.25));
+        const op = 1 - Math.min(1, Math.max(0, (maskT * 1.35 - c.lp) / 0.25));
         const mask = maskRefs.current[i];
         if (mask) mask.style.opacity = op.toFixed(3);
 
@@ -268,22 +282,136 @@ export function PerspectiveGallery({
       setVar("--para", easeOutQuart(phase(t, 1.15, 1.75)));
       setVar("--prompt", easeOutQuart(phase(t, 1.25, 1.85)));
 
-      // --- Divergent travel. The ramp overlaps the tail of the unfold so the
-      // ribbon is already drifting as it finishes opening. Starting later — or
-      // with a slow ease-in — leaves a dead beat that reads as a pause.
-      ph = (ph + PHASE_SPEED * easeOutQuad(phase(t, 1.15, 1.9)) * dt) % 1;
+      // --- Motion. Two rules over the same positions:
+      //   drift — every card walks outward, away from the centre;
+      //   spin  — every card walks the same way round, so cards cross the
+      //           centre, shrink through the band and grow out the far side.
+      // Only the direction differs, so switching between them never moves a
+      // card; `w` crossfades from drift to spin as the spin outruns the drift.
+      if (!dragging) {
+        spinV *= Math.pow(SPIN_FRICTION, dt);
+        if (Math.abs(spinV) < SPIN_MIN) spinV = 0;
+      }
+      // Drift is held back until the opening has unfolded; the ramp overlaps
+      // its tail so the ribbon is already moving as it finishes opening.
+      const drift = PHASE_SPEED * easeOutQuad(phase(t, 1.15, 1.9));
+      const w = dragging ? 1 : Math.min(1, Math.abs(spinV) / PHASE_SPEED);
+
+      // Every card advances by the same amount; only the sign differs, so the
+      // distance travelled this frame is a single number.
+      const travelled = Math.abs(lerp(drift, spinV, w)) * dt;
+
+      for (let i = 0; i < cards.length; i++) {
+        const c = cards[i];
+        // Outward is +lp on both sides; rightward is +lp on the right half and
+        // −lp on the left, which is what carries a card through the centre.
+        c.lp += lerp(drift, c.side * spinV, w) * dt;
+
+        if (c.lp < 0) {
+          // Crossed the centre seam — same card, other half of the ribbon.
+          c.side = (c.side === 1 ? -1 : 1) as 1 | -1;
+          c.lp = -c.lp;
+        } else if (c.lp >= 1) {
+          if (w > 0.5) {
+            // Spinning: off one edge, back on at the opposite one, still
+            // travelling the same way — this is what makes it loop.
+            c.side = (c.side === 1 ? -1 : 1) as 1 | -1;
+            c.lp = 2 - c.lp;
+          } else {
+            c.lp -= 1; // Drifting: reborn at the centre on the same side.
+          }
+          c.src = nextSrc++ % CARDS.length;
+          applyFace(i, c.src);
+        }
+      }
+
+      // One chain click per card-step of travel, so the rhythm follows the
+      // speed: a lazy tick at rest, a rattle when spun hard.
+      sinceTick += travelled;
+      const stepSize = 1 / PER_SIDE;
+      if (sinceTick >= stepSize) {
+        sinceTick %= stepSize;
+        const speed = travelled / dt / PHASE_SPEED;
+        soundRef.current?.tick(
+          Math.max(-0.7, Math.min(0.7, spinV * 40)),
+          Math.min(1, 0.55 + speed * 0.25)
+        );
+      }
 
       writeCards(anim, maskT);
     };
 
+    // Dev-only inspection hook for verifying the motion rules.
+    if (process.env.NODE_ENV !== "production") {
+      (window as unknown as Record<string, unknown>).__ribbon = {
+        cards,
+        state: () => ({ spinV, dragging }),
+      };
+    }
+
+    // --- Drag to spin ---
+    const surface = dragRef.current;
+    let lastX = 0;
+    let lastMove = 0;
+
+    const onDown = (e: PointerEvent) => {
+      dragging = true;
+      spinV = 0;
+      lastX = e.clientX;
+      lastMove = performance.now();
+      surface?.setPointerCapture(e.pointerId);
+      root.classList.add("is-dragging");
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const now = performance.now();
+      const dx = e.clientX - lastX;
+      const dtMs = Math.max(8, now - lastMove);
+      lastX = e.clientX;
+      lastMove = now;
+      // Pixels dragged → phase per second, scaled with the ribbon.
+      const dPhase = dx / (DRAG_PX_PER_PHASE * vpScale());
+      spinV = (dPhase / dtMs) * 1000;
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      // A pause before release should let go of the ribbon, not fling it.
+      if (performance.now() - lastMove > 120) spinV = 0;
+      surface?.releasePointerCapture(e.pointerId);
+      root.classList.remove("is-dragging");
+    };
+
+    surface?.addEventListener("pointerdown", onDown);
+    surface?.addEventListener("pointermove", onMove);
+    surface?.addEventListener("pointerup", onUp);
+    surface?.addEventListener("pointercancel", onUp);
+
+    // Keyboard equivalent, so the ribbon is not mouse-only.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      spinV = (e.key === "ArrowRight" ? 1 : -1) * PHASE_SPEED * 9;
+    };
+    window.addEventListener("keydown", onKey);
+
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      surface?.removeEventListener("pointerdown", onDown);
+      surface?.removeEventListener("pointermove", onMove);
+      surface?.removeEventListener("pointerup", onUp);
+      surface?.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("keydown", onKey);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootRef, cards]);
 
   // Initial faces are painted inline; the loop repaints them on rebirth.
   return (
     <div className="gallery" ref={stageRef} aria-hidden="true">
+      {/* Transparent grab surface. Sits above the ribbon but below the
+          headline and prompt, so those stay interactive. */}
+      <div className="gallery__drag" ref={dragRef} />
       <div className="gallery__stage">
         <svg
           className="gallery__band"
