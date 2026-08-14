@@ -13,43 +13,63 @@
 // apparent widths, so the ribbon is packed edge-to-edge by construction and
 // the gaps widen automatically as the cards grow and turn.
 
+// Declared first: the profile below is built at module load and calls it.
+export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
 export const BASE_W = 1440;
 /** Card face size in base units (aspect ≈ 0.95, as measured). */
 export const CARD_W = 270;
 export const CARD_H = 284;
 
-/** Cards per side. Must match PER_SIDE in PerspectiveGallery. */
-export const N_PER_SIDE = 6;
+/**
+ * Cards per side. Must match PER_SIDE in PerspectiveGallery.
+ *
+ * Nine rather than six: cards are born as slivers and grow, so the innermost
+ * few are tiny and sit inside the dark band. They exist to keep the centre
+ * continuously covered — with too few, the gap a departing pair leaves behind
+ * is not filled until the next pair spawns, and the centre visibly blanks.
+ */
+export const N_PER_SIDE = 10;
 
 // Cards are born small and grow continuously from the moment they appear —
 // there is no flat plateau. A plateau freezes a newborn at full size for its
 // first whole slot (~1.6s), which reads as "the images aren't growing".
-const S0 = 0.225; // scale at birth → ~64px tall
+const S0 = 0.0493; // scale at birth → ~14px tall, a sliver
 const GROW_STEP = 1.53; // size ratio between adjacent cards
 /**
- * Slight overlap. Cards must never show background between them — a gap makes
- * them read as separate tiles laid side by side; overlapping makes each one
- * visibly tuck behind its neighbour.
+ * Spacing as a fraction of a card's own width. Below 1 the cards overlap, and
+ * they must: any background showing between them makes the ribbon read as
+ * separate tiles laid side by side rather than a stack.
+ *
+ * The innermost slots overlap hard. Only one card occupies the first slot at a
+ * time, so as it travels outward it uncovers the centre and nothing fills the
+ * space until the next pair spawns — the centre visibly blanks between births.
+ * Piling the first couple of slots on top of each other keeps a photograph
+ * spanning the centre at every instant.
  */
-const GAP = 0.97;
-/** Half-width of the black seam the newborn pair straddles. */
-const SEAM_HALF = 8;
-// Measured rotation by card index: 0, 0, 20, 40, 57, 68, 75 degrees. The ramp
-// is expressed per-card so it survives a change in N_PER_SIDE.
-// Rotation is what makes the ribbon read as a *stack* rather than a filmstrip:
-// the outer cards must turn hard enough to compress into narrow, steeply
-// leaning slats that tuck behind one another. Measured off the reference by
-// card index: 0, 0, ~10, 48, 64, 72 degrees — a late but very steep ramp.
+const GAP_CENTRE = 0.4;
+const GAP_OUTER = 0.97;
+const gapAt = (lp: number) =>
+  lerp(GAP_CENTRE, GAP_OUTER, Math.min(1, lp / (3.5 / N_PER_SIDE)));
+/**
+ * Negative, so the innermost card's inner edge sits *past* the centre line and
+ * the mirrored pair always overlaps there. Zero would leave the pair meeting
+ * exactly, and any drift between births reopens a sliver of blank centre.
+ */
+const SEAM_HALF = -8;
+
+// Rotation as a function of distance from centre, rather than of card index —
+// so it is unaffected by how many cards per side we run. Fitted to the
+// reference, whose cards read 0° at x=51 and x=127, then 20°, 40°, 57°, 68° at
+// x = 227, 344, 482, 626 (base units).
 const ROT_MAX = 90; // deg, asymptote
-const ROT_RATE = 2.55 * (6 / N_PER_SIDE); // ramp rate, held constant per card
-const ROT_START = 0.2; // lp before which cards stay front-facing
-// Depth range kept mild: card size is set explicitly by `scaleAt`, so z is
-// only there for subtle parallax — a deep range would fight the measured
-// sizes via perspective foreshortening.
-export const FAR_Z = -70;
-export const NEAR_Z = 45;
-/** The dark band sits just behind the deepest (centre) cards. */
-export const BAND_Z = FAR_Z - 25;
+const ROT_K = 0.00288; // per base px
+const ROT_X0 = 140; // px from centre before a card starts to turn
+const ryAtX = (absX: number) =>
+  ROT_MAX * (1 - Math.exp(-ROT_K * Math.max(0, absX - ROT_X0)));
+
+/** The dark band sits just behind the centre cards, which rest at z = 0. */
+export const BAND_Z = -80;
 /**
  * Must match `perspective` on .gallery in Hero.css. Measured off the
  * reference: its cards keystone by only ~8–11% between inner and outer edge,
@@ -65,11 +85,6 @@ export const PERSPECTIVE = 2000;
 // heights 79, 79, 121, 192, 298, 433, 604 to within a few percent.
 const GROW_K = Math.log(GROW_STEP) * N_PER_SIDE;
 export const scaleAt = (lp: number) => S0 * Math.exp(GROW_K * lp);
-export const ryAt = (lp: number) =>
-  ROT_MAX * (1 - Math.exp(-ROT_RATE * Math.max(0, lp - ROT_START)));
-
-const apparentW = (lp: number) =>
-  CARD_W * scaleAt(lp) * Math.cos((ryAt(lp) * Math.PI) / 180);
 
 // Precomputed cumulative-width profile: XS[i] = the inner edge of the card at
 // lp = i/(SAMPLES-1). Built once; the shape never changes (only vpScale does).
@@ -79,20 +94,42 @@ const apparentW = (lp: number) =>
 // unshifted width instead advances by the slot's mean width, which for
 // exponentially growing cards overshoots by ~GROW_K/(2·N) — about 20% of a
 // card — and opens a visible gap between every pair of neighbours.
+// Rotation depends on distance from centre, and distance is the running sum of
+// the (rotation-narrowed) widths — so the two are solved together, marching
+// outward and reading rotation from the position reached so far.
 const HALF_SLOT = 0.5 / N_PER_SIDE;
-const SAMPLES = 257;
-const XS = new Float64Array(SAMPLES);
+const SAMPLES = 513;
+const XS = new Float64Array(SAMPLES); // inner edge of the card at this phase
+const RYS = new Float64Array(SAMPLES); // its rotation, in degrees
 {
   const step = 1 / (SAMPLES - 1);
-  const wShift = (s: number) => apparentW(Math.max(0, s - HALF_SLOT));
-  let acc = 0;
+  const scaleShift = (s: number) => scaleAt(Math.max(0, s - HALF_SLOT));
+  const widthAt = (sc: number, ry: number) =>
+    CARD_W * sc * Math.cos((ry * Math.PI) / 180);
+
+  let edge = 0;
+  RYS[0] = ryAtX(widthAt(scaleShift(0), 0) / 2);
   for (let i = 1; i < SAMPLES; i++) {
-    const a = (i - 1) * step;
-    const b = i * step;
-    acc += 0.5 * (wShift(a) + wShift(b)) * N_PER_SIDE * GAP * step;
-    XS[i] = acc;
+    const wA = widthAt(scaleShift((i - 1) * step), RYS[i - 1]);
+    // Rotation for this sample, taken at the card's centre.
+    const ryB = ryAtX(edge + wA / 2);
+    const wB = widthAt(scaleShift(i * step), ryB);
+    edge += 0.5 * (wA + wB) * N_PER_SIDE * gapAt(i * step) * step;
+    XS[i] = edge;
+    RYS[i] = ryB;
   }
 }
+
+const sample = (arr: Float64Array, lp: number) => {
+  const f = Math.min(0.999999, Math.max(0, lp)) * (SAMPLES - 1);
+  const i = f | 0;
+  return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
+};
+
+export const ryAt = (lp: number) => sample(RYS, lp);
+
+const apparentW = (lp: number) =>
+  CARD_W * scaleAt(lp) * Math.cos((ryAt(lp) * Math.PI) / 180);
 
 /**
  * Distance from the centre to a card's *centre*. XS accumulates the cards'
@@ -101,11 +138,7 @@ const XS = new Float64Array(SAMPLES);
  * against the centre line instead of on top of each other.
  */
 export function xAt(lp: number): number {
-  const c = Math.min(0.999999, Math.max(0, lp));
-  const f = c * (SAMPLES - 1);
-  const i = f | 0;
-  const edge = XS[i] + (XS[i + 1] - XS[i]) * (f - i);
-  return SEAM_HALF + edge + apparentW(c) / 2;
+  return SEAM_HALF + sample(XS, lp) + apparentW(lp) / 2;
 }
 
 /** Smallest card height in base units. */
@@ -172,10 +205,12 @@ export function bowtiePath(
 }
 
 export interface CardTransform {
-  x: number; // px, horizontal translate from centre
+  x: number; // px, horizontal translate from centre (pre-perspective)
   z: number; // px, depth translate (CSS 3D)
   ry: number; // deg, rotateY
-  scale: number;
+  scale: number; // CSS scale (pre-perspective)
+  /** Height the card actually occupies on screen, for offscreen tests. */
+  screenScale: number;
 }
 
 export interface OpeningAnim {
@@ -191,7 +226,6 @@ export interface OpeningAnim {
   unfold: number;
 }
 
-export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
@@ -228,21 +262,31 @@ export function cardTransform(
   const half1 = (CARD_W * (bowtieH(absX, anim) / CARD_H)) / 2;
   const stripScale = bowtieH(Math.max(0, absX - half1), anim) / CARD_H;
 
-  // FINAL
-  const scale = scaleAt(lp);
-  const finalX = side * xAt(lp);
-  const finalRy = -side * ryAt(lp);
-  const finalZ = lerp(FAR_Z, NEAR_Z, clamp01((lp - 0.25) / 0.75));
-
-  // No depth bias for newborns: nudging them back puts them *behind* the dark
-  // band, which hides them and leaves a black hole at the centre of the
-  // ribbon. Cards are born small and tile exactly, so nothing pops anyway.
+  // FINAL — these are the sizes and positions we want *on screen*.
   const t = anim.unfold;
+  const screenScale = lerp(stripScale, scaleAt(lp), t);
+  const screenX = lerp(stripX, side * xAt(lp), t);
+  const ry = lerp(0, -side * ryAt(lp), t);
+
+  // Depth is what makes the ribbon stack. A card's growth outward is delivered
+  // by moving it *toward the camera* rather than by scaling it up: every card
+  // keeps the same size in 3D and perspective does the enlarging. Because each
+  // card outward is genuinely nearer, it occludes the one inside it — which is
+  // the stacking order the reference shows. Scaling cards up in place instead
+  // leaves them coplanar, and then each card's own lean decides the order,
+  // which puts the *inner* card in front — backwards.
+  //
+  // `gain` is the perspective magnification P/(P−z). It runs from 1 while the
+  // ribbon is still a flat strip to scale/S0 once unfolded, so the opening
+  // stays flat and the depth arrives with the unfold.
+  const gain = lerp(1, scaleAt(lp) / S0, t);
   return {
-    x: lerp(stripX, finalX, t),
-    z: lerp(0, finalZ, t),
-    ry: lerp(0, finalRy, t),
-    scale: lerp(stripScale, scale, t),
+    x: screenX / gain,
+    z: PERSPECTIVE * (1 - 1 / gain),
+    ry,
+    // Divided out, so screen size is scale × gain === screenScale.
+    scale: screenScale / gain,
+    screenScale,
   };
 }
 

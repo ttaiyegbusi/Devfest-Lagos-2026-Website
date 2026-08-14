@@ -7,6 +7,7 @@ import {
   BAND_HALF,
   BAND_Z,
   BASE_W,
+  CARD_W,
   BOWTIE_MAX_HALF,
   PERSPECTIVE,
   bowtiePath,
@@ -126,6 +127,13 @@ export function PerspectiveGallery({
     const writeCards = (anim: OpeningAnim, maskT: number) => {
       const vs = vpScale();
       const halfW = window.innerWidth / 2;
+      // Depth is scaled with everything else, so the viewing distance has to
+      // scale too — otherwise the perspective magnification the geometry
+      // assumed stops matching what the browser applies.
+      if (stageRef.current)
+        stageRef.current.style.perspective = `${(PERSPECTIVE * vs).toFixed(
+          0
+        )}px`;
 
       for (let i = 0; i < cards.length; i++) {
         const el = cardRefs.current[i];
@@ -139,6 +147,8 @@ export function PerspectiveGallery({
         c.prevLp = lp;
 
         const t = cardTransform(lp, c.side, anim);
+        // Perspective magnification this card's depth will apply.
+        const gain = t.screenScale / t.scale;
         const x = t.x * vs;
         const scale = t.scale * vs;
         el.style.transform = `translate(-50%, -50%) translate3d(${x.toFixed(
@@ -156,8 +166,12 @@ export function PerspectiveGallery({
         // silhouette — invisible, but its edges and shadow would striate the
         // drawn path. Hide it until its image starts resolving, so the seed
         // reads as one clean shape.
-        const halfCard = 130 * scale + 20;
-        const offscreen = Math.abs(x) - halfCard > halfW || scale < 0.01;
+        // Judged on what the card covers *on screen*. `t.x` and `t.scale` are
+        // pre-perspective, so both are far smaller than the rendered result.
+        const onX = t.x * gain * vs;
+        const halfCard = (CARD_W / 2) * t.screenScale * vs + 20;
+        const offscreen =
+          Math.abs(onX) - halfCard > halfW || t.screenScale < 0.004;
         el.style.visibility =
           offscreen || op > 0.995 ? "hidden" : "visible";
       }
@@ -176,7 +190,8 @@ export function PerspectiveGallery({
           `${-halfW} ${-endH / 2} ${2 * halfW} ${endH}`
         );
         path.setAttribute("d", bowtiePath(halfW, endH, anim.waistH));
-        const unshrink = (PERSPECTIVE + Math.abs(BAND_Z * vs)) / PERSPECTIVE;
+        // vs cancels: both the depth and the viewing distance scale with it.
+        const unshrink = (PERSPECTIVE + Math.abs(BAND_Z)) / PERSPECTIVE;
         band.style.width = `${(2 * halfW * vs * unshrink).toFixed(1)}px`;
         band.style.height = `${(endH * vs * unshrink).toFixed(1)}px`;
         band.style.transform = `translate(-50%, -50%) translateZ(${(
